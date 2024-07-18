@@ -4,7 +4,7 @@ import shutil
 from langchain.document_loaders.pdf import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
-from get_embedding_function import get_embedding_function
+from utils.get_embedding_function import get_embedding_function
 from langchain.vectorstores.chroma import Chroma
 
 
@@ -12,7 +12,7 @@ CHROMA_PATH = "chroma"
 DATA_PATH = "data"
 
 
-def main():
+def populate_database():
 
     # Check if the database should be cleared (using the --clear flag).
     parser = argparse.ArgumentParser()
@@ -104,7 +104,3 @@ def calculate_chunk_ids(chunks):
 def clear_database():
     if os.path.exists(CHROMA_PATH):
         shutil.rmtree(CHROMA_PATH)
-
-
-if __name__ == "__main__":
-    main()

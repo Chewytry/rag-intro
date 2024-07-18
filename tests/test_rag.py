@@ -1,4 +1,5 @@
-from query_data import query_rag
+import pytest
+from services.query_data import query_rag
 from langchain_community.llms.ollama import Ollama
 
 EVAL_PROMPT = """
@@ -8,23 +9,8 @@ Actual Response: {actual_response}
 (Answer with 'true' or 'false') Does the actual response match the expected response? 
 """
 
-
-def test_monopoly_rules():
-    assert query_and_validate(
-        question="How much total money does a player start with in Monopoly? (Answer with the number only)",
-        expected_response="$1500",
-    )
-
-
-def test_ticket_to_ride_rules():
-    assert query_and_validate(
-        question="How many points does the longest continuous train get in Ticket to Ride? (Answer with the number only)",
-        expected_response="10 points",
-    )
-
-
 def query_and_validate(question: str, expected_response: str):
-    response_text = query_rag(question)
+    response_text = query_rag(question)['response']
     prompt = EVAL_PROMPT.format(
         expected_response=expected_response, actual_response=response_text
     )
@@ -47,3 +33,16 @@ def query_and_validate(question: str, expected_response: str):
         raise ValueError(
             f"Invalid evaluation result. Cannot determine if 'true' or 'false'."
         )
+    
+def test_monopoly_rules():
+    assert query_and_validate(
+        question="How much total money does a player start with in Monopoly? (Answer with the number only)",
+        expected_response="$1500",
+    )
+
+
+def test_ticket_to_ride_rules():
+    assert query_and_validate(
+        question="How many points does the longest continuous train get in Ticket to Ride? (Answer with the number only)",
+        expected_response="10 points",
+    )
