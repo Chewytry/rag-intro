@@ -1,6 +1,7 @@
 import argparse
 import os
 import shutil
+import logging
 from langchain.document_loaders.pdf import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
@@ -11,22 +12,20 @@ from langchain.vectorstores.chroma import Chroma
 CHROMA_PATH = "chroma"
 DATA_PATH = "data"
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def populate_database():
-
-    # Check if the database should be cleared (using the --clear flag).
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--reset", action="store_true", help="Reset the database.")
-    args = parser.parse_args()
-    if args.reset:
-        print("✨ Clearing Database")
-        clear_database()
-
     # Create (or update) the data store.
     documents = load_documents()
     chunks = split_documents(documents)
     add_to_chroma(chunks)
 
+def populate_database_alt():
+    # Create (or update) the data store.
+    documents = load_documents()
+    chunks = split_documents(documents)
+    add_to_chroma(chunks)
 
 def load_documents():
     document_loader = PyPDFDirectoryLoader(DATA_PATH)
@@ -42,7 +41,6 @@ def split_documents(documents: list[Document]):
     )
     return text_splitter.split_documents(documents)
 
-
 def add_to_chroma(chunks: list[Document]):
     # Load the existing database.
     db = Chroma(
@@ -55,7 +53,7 @@ def add_to_chroma(chunks: list[Document]):
     # Add or Update the documents.
     existing_items = db.get(include=[])  # IDs are always included by default
     existing_ids = set(existing_items["ids"])
-    print(f"Number of existing documents in DB: {len(existing_ids)}")
+    logging.info(f"Number of existing documents in DB: {len(existing_ids)}")
 
     # Only add documents that don't exist in the DB.
     new_chunks = []
@@ -64,12 +62,19 @@ def add_to_chroma(chunks: list[Document]):
             new_chunks.append(chunk)
 
     if len(new_chunks):
-        print(f"👉 Adding new documents: {len(new_chunks)}")
+        logging.info(f"👉 Adding new documents: {len(new_chunks)}")
         new_chunk_ids = [chunk.metadata["id"] for chunk in new_chunks]
-        db.add_documents(new_chunks, ids=new_chunk_ids)
+
+        # Log progress of adding documents
+        for i, chunk in enumerate(new_chunks, 1):
+            db.add_documents([chunk], ids=[chunk.metadata["id"]])
+            logging.info(f"Added document {i}/{len(new_chunks)}: {chunk.metadata['id']}")
+
         db.persist()
+        logging.info("Database persisted successfully.")
     else:
-        print("✅ No new documents to add")
+        logging.info("✅ No new documents to add")
+
 
 
 def calculate_chunk_ids(chunks):
@@ -104,3 +109,31 @@ def calculate_chunk_ids(chunks):
 def clear_database():
     if os.path.exists(CHROMA_PATH):
         shutil.rmtree(CHROMA_PATH)
+
+def show_data_files():
+    files = os.listdir(DATA_PATH)
+    return files
+
+def show_database_contents():
+    db = Chroma(persist_directory=CHROMA_PATH, embedding_function=get_embedding_function())
+    existing_items = db.get(include=["ids", "metadatas"])
+    existing_ids = existing_items["ids"]
+    metadatas = existing_items["metadatas"]
+
+    documents = [{"id": doc_id, "metadata": metadata} for doc_id, metadata in zip(existing_ids, metadatas)]
+    return documents
+
+def add_file_to_data(file_path):
+    if os.path.exists(file_path):
+        shutil.copy(file_path, DATA_PATH)
+        return f"File {file_path} added to data directory."
+    else:
+        return f"File {file_path} does not exist."
+
+def remove_file_from_data(file_name):
+    file_path = os.path.join(DATA_PATH, file_name)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        return f"File {file_path} removed from data directory."
+    else:
+        return f"File {file_path} does not exist in data directory."

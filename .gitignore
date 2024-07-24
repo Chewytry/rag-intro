@@ -3,3 +3,5 @@
 backup
 chroma
 __pycache__/
+data_store
+data
